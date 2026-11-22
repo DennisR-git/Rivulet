@@ -210,4 +210,20 @@ extension EmbyMediaMapper {
             }
         }
     }
+
+    /// With the server's credits detection off, a chapter named like credits
+    /// ("Abspann", "Ending", "End Credits", "ED") in the last quarter stands in for CreditsStart.
+    private static let creditsWords = ["abspann", "nachspann", "credits", "ending", "outro"]
+
+    /// The first plain chapter in the last quarter whose name reads as credits.
+    static func namedCreditsStart(_ chapters: [EmbyChapter], runtime: TimeInterval) -> TimeInterval? {
+        chapters.compactMap { chapter -> TimeInterval? in
+            guard chapter.markerType == "Chapter", let time = EmbyTicks.seconds(chapter.startPositionTicks),
+                  time >= runtime * 0.75, time < runtime,
+                  let name = chapter.name?.lowercased().trimmingCharacters(in: .whitespaces), !name.isEmpty else { return nil }
+            let words = name.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
+            let reads = creditsWords.contains { name.contains($0) } || words.contains("ed")
+            return reads ? time : nil
+        }.min()
+    }
 }
